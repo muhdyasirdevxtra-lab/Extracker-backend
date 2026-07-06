@@ -1,5 +1,4 @@
 const User = require('../models/User');
-const generateToken = require('../utils/generateToken');
 
 // @desc    Auth user/set token
 // @route   POST /api/auth/login
@@ -11,7 +10,6 @@ const loginUser = async (req, res) => {
     const user = await User.findOne({ username });
 
     if (user && (await user.matchPassword(password))) {
-      generateToken(res, user._id);
       res.status(200).json({
         _id: user._id,
         username: user.username,
@@ -44,7 +42,6 @@ const registerUser = async (req, res) => {
     });
 
     if (user) {
-      generateToken(res, user._id);
       res.status(201).json({
         _id: user._id,
         username: user.username
@@ -61,10 +58,6 @@ const registerUser = async (req, res) => {
 // @route   POST /api/auth/logout
 // @access  Public
 const logoutUser = (req, res) => {
-  res.cookie('jwt', '', {
-    httpOnly: true,
-    expires: new Date(0)
-  });
   res.status(200).json({ message: 'User logged out' });
 };
 
