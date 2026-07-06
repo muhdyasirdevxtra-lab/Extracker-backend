@@ -2,6 +2,7 @@ const Expense = require('../models/Expense');
 const Salary = require('../models/Salary');
 const Savings = require('../models/Savings');
 const Account = require('../models/Account');
+const Settings = require('../models/Settings');
 
 // @desc    Get dashboard summary
 // @route   GET /api/reports/summary
@@ -61,6 +62,12 @@ const getDashboardSummary = async (req, res) => {
     // 5. Get Accounts
     const accounts = await Account.find({ user: userId });
 
+    // 6. Get Settings for limits
+    let settings = await Settings.findOne({ user: userId });
+    if (!settings) {
+      settings = await Settings.create({ user: userId });
+    }
+
     res.json({
       monthlySalary,
       totalSavings,
@@ -68,7 +75,11 @@ const getDashboardSummary = async (req, res) => {
       todayExpense: expData.todayExpense,
       weeklyExpense: expData.weeklyExpense,
       monthlyExpense: expData.monthlyExpense,
-      accounts
+      accounts,
+      limits: {
+        monthly: settings.monthlyLimit,
+        daily: settings.dailyLimit
+      }
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

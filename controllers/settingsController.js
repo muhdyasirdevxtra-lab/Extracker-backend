@@ -25,11 +25,13 @@ const updateSettings = async (req, res) => {
       settings = await Settings.create({ user: req.user._id });
     }
 
-    const { darkMode, currency, notificationsEnabled } = req.body;
+    const { darkMode, currency, notificationsEnabled, monthlyLimit, dailyLimit } = req.body;
     
-    settings.darkMode = darkMode !== undefined ? darkMode : settings.darkMode;
-    settings.currency = currency || settings.currency;
-    settings.notificationsEnabled = notificationsEnabled !== undefined ? notificationsEnabled : settings.notificationsEnabled;
+    if (darkMode !== undefined) settings.darkMode = darkMode;
+    if (currency !== undefined) settings.currency = currency;
+    if (notificationsEnabled !== undefined) settings.notificationsEnabled = notificationsEnabled;
+    if (monthlyLimit !== undefined) settings.monthlyLimit = monthlyLimit;
+    if (dailyLimit !== undefined) settings.dailyLimit = dailyLimit;
 
     const updatedSettings = await settings.save();
     res.json(updatedSettings);

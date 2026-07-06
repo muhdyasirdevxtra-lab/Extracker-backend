@@ -15,6 +15,14 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     default: 'INR'
   },
+  monthlyLimit: {
+    type: Number,
+    default: 4000
+  },
+  dailyLimit: {
+    type: Number,
+    default: 200
+  },
   notificationsEnabled: {
     type: Boolean,
     default: true
