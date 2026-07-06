@@ -1,30 +1,25 @@
 const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 const app = express();
 
-// CORS must be FIRST, before helmet or anything else
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-// Explicitly handle all preflight OPTIONS requests
-app.options('*', (req, res) => {
+// STEP 1: Raw CORS headers on EVERY single response, before anything else
+app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  res.sendStatus(200);
+
+  // STEP 2: Immediately respond to OPTIONS preflight — do NOT let it reach any other middleware
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+
+  next();
 });
 
-// Security middlewares (AFTER cors)
-app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-
+// Now safe to add other middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -32,7 +27,7 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Rate Limiter
+// Rate Limiter (only for non-OPTIONS requests since OPTIONS already returned above)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
