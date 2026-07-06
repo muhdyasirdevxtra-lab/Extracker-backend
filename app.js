@@ -16,7 +16,8 @@ app.use(cors({
   origin: function (origin, callback) {
     callback(null, true);
   },
-  credentials: true
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'user-id']
 }));
 
 app.use(express.json());
