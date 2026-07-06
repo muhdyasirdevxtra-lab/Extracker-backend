@@ -105,9 +105,7 @@ const getChartData = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-module.exports = { getDashboardSummary, getChartData };
-
+// First exports removed to prevent shadowing the bottom one.
 // @desc    Get last 6 months spending trend
 // @route   GET /api/reports/trend
 // @access  Private
