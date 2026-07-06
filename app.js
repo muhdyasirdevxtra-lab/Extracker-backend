@@ -13,7 +13,7 @@ app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" })); // For images
 
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? 'your_production_url_here' : 'http://localhost:5173',
+  origin: [process.env.FRONTEND_URL, 'http://localhost:5173'].filter(Boolean),
   credentials: true
 }));
 
@@ -58,6 +58,10 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportsRoutes);
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'API is running' });
+});
+
+app.get('/', (req, res) => {
+  res.send('Extracker Backend API is running successfully on Vercel!');
 });
 
 // Basic Error Handling
