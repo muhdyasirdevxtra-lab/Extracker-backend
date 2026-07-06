@@ -13,7 +13,9 @@ app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" })); // For images
 
 app.use(cors({
-  origin: [process.env.FRONTEND_URL, 'http://localhost:5173'].filter(Boolean),
+  origin: function (origin, callback) {
+    callback(null, true);
+  },
   credentials: true
 }));
 
