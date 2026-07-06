@@ -74,16 +74,21 @@ const getDashboardSummary = async (req, res) => {
 
     const expData = expensesData.length > 0 ? expensesData[0] : { monthlyExpense: 0, weeklyExpense: 0, todayExpense: 0 };
 
-    // 4. Savings deposits this cycle
-    const depositsThisCycle = await Savings.aggregate([
-      { $match: { user: userId, type: 'Deposit', date: { $gte: cycleStart, $lte: cycleEnd } } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
+    // 4. Savings activity this cycle
+    const savingsThisCycle = await Savings.aggregate([
+      { $match: { user: userId, date: { $gte: cycleStart, $lte: cycleEnd } } },
+      { $group: { 
+          _id: null, 
+          totalDeposit: { $sum: { $cond: [{ $eq: ['$type', 'Deposit'] }, '$amount', 0] } },
+          totalWithdraw: { $sum: { $cond: [{ $eq: ['$type', 'Withdrawal'] }, '$amount', 0] } }
+      } }
     ]);
     
-    const cycleDeposits = depositsThisCycle.length > 0 ? depositsThisCycle[0].total : 0;
+    const cycleDeposits = savingsThisCycle.length > 0 ? savingsThisCycle[0].totalDeposit : 0;
+    const cycleWithdrawals = savingsThisCycle.length > 0 ? savingsThisCycle[0].totalWithdraw : 0;
     
-    // Remaining Balance = Salary - Expenses - Savings Deposits
-    const remainingBalance = monthlySalary - expData.monthlyExpense - cycleDeposits;
+    // Remaining Balance = Salary - Expenses - Savings Deposits + Savings Withdrawals
+    const remainingBalance = monthlySalary - expData.monthlyExpense - cycleDeposits + cycleWithdrawals;
 
     // 5. Get Accounts
     const accounts = await Account.find({ user: userId });
