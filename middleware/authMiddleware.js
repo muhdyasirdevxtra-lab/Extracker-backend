@@ -1,7 +1,10 @@
 const User = require('../models/User');
 
 const protect = async (req, res, next) => {
-  const userId = req.headers['user-id'];
+  let userId;
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    userId = req.headers.authorization.split(' ')[1];
+  }
 
   if (userId) {
     try {
