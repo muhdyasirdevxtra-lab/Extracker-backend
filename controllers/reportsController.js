@@ -4,21 +4,49 @@ const Savings = require('../models/Savings');
 const Account = require('../models/Account');
 const Settings = require('../models/Settings');
 
+/**
+ * Get the current cycle's date range.
+ * Cycle runs from the 6th of current month to the 5th of the next month.
+ * If today is before the 6th, we are still in the previous month's cycle.
+ */
+const getCycleDates = () => {
+  const now = new Date();
+  const today = now.getDate();
+
+  let cycleStart, cycleEnd, cycleMonth, cycleYear;
+
+  if (today >= 6) {
+    // We are in this month's cycle (e.g., July 6 → Aug 5)
+    cycleStart = new Date(now.getFullYear(), now.getMonth(), 6, 0, 0, 0);
+    cycleEnd = new Date(now.getFullYear(), now.getMonth() + 1, 5, 23, 59, 59);
+    cycleMonth = now.getMonth() + 1; // 1-indexed
+    cycleYear = now.getFullYear();
+  } else {
+    // We are still in the previous month's cycle (e.g., Jul 1-5 = June cycle)
+    cycleStart = new Date(now.getFullYear(), now.getMonth() - 1, 6, 0, 0, 0);
+    cycleEnd = new Date(now.getFullYear(), now.getMonth(), 5, 23, 59, 59);
+    cycleMonth = now.getMonth(); // Previous month (1-indexed since getMonth is 0-indexed)
+    cycleYear = cycleMonth === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    if (cycleMonth === 0) cycleMonth = 12;
+  }
+
+  return { cycleStart, cycleEnd, cycleMonth, cycleYear };
+};
+
 // @desc    Get dashboard summary
 // @route   GET /api/reports/summary
 // @access  Private
 const getDashboardSummary = async (req, res) => {
   try {
     const userId = req.user._id;
+    const { cycleStart, cycleEnd, cycleMonth, cycleYear } = getCycleDates();
     const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
 
-    // 1. Monthly Salary
-    const salary = await Salary.findOne({ user: userId, month: currentMonth, year: currentYear });
+    // 1. Monthly Salary for this cycle
+    const salary = await Salary.findOne({ user: userId, month: cycleMonth, year: cycleYear });
     const monthlySalary = salary ? salary.amount : 0;
 
-    // 2. Total Savings
+    // 2. Total Savings (all-time)
     const savings = await Savings.aggregate([
       { $match: { user: userId } },
       { $group: {
@@ -30,13 +58,12 @@ const getDashboardSummary = async (req, res) => {
     
     const totalSavings = savings.length > 0 ? savings[0].totalDeposit - savings[0].totalWithdraw : 0;
 
-    // 3. Expenses (Today, Weekly, Monthly)
+    // 3. Expenses for this cycle (today, weekly, monthly)
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const expensesData = await Expense.aggregate([
-      { $match: { user: userId, date: { $gte: startOfMonth } } },
+      { $match: { user: userId, date: { $gte: cycleStart, $lte: cycleEnd } } },
       { $group: {
           _id: null,
           monthlyExpense: { $sum: '$amount' },
@@ -47,17 +74,16 @@ const getDashboardSummary = async (req, res) => {
 
     const expData = expensesData.length > 0 ? expensesData[0] : { monthlyExpense: 0, weeklyExpense: 0, todayExpense: 0 };
 
-    // 4. Remaining Balance = Salary - MonthlyExpense - (Deposits in this month)
-    // Wait, the savings should be tracked per month too for remaining balance.
-    // Let's get deposits this month
-    const depositsThisMonth = await Savings.aggregate([
-      { $match: { user: userId, type: 'Deposit', date: { $gte: startOfMonth } } },
+    // 4. Savings deposits this cycle
+    const depositsThisCycle = await Savings.aggregate([
+      { $match: { user: userId, type: 'Deposit', date: { $gte: cycleStart, $lte: cycleEnd } } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     
-    const monthlyDeposits = depositsThisMonth.length > 0 ? depositsThisMonth[0].total : 0;
+    const cycleDeposits = depositsThisCycle.length > 0 ? depositsThisCycle[0].total : 0;
     
-    const remainingBalance = monthlySalary - expData.monthlyExpense - monthlyDeposits;
+    // Remaining Balance = Salary - Expenses - Savings Deposits
+    const remainingBalance = monthlySalary - expData.monthlyExpense - cycleDeposits;
 
     // 5. Get Accounts
     const accounts = await Account.find({ user: userId });
@@ -79,6 +105,12 @@ const getDashboardSummary = async (req, res) => {
       limits: {
         monthly: settings.monthlyLimit,
         daily: settings.dailyLimit
+      },
+      cycle: {
+        month: cycleMonth,
+        year: cycleYear,
+        start: cycleStart,
+        end: cycleEnd
       }
     });
   } catch (error) {
@@ -86,17 +118,16 @@ const getDashboardSummary = async (req, res) => {
   }
 };
 
-// @desc    Get chart data (expenses by category)
+// @desc    Get chart data (expenses by category for current cycle)
 // @route   GET /api/reports/charts
 // @access  Private
 const getChartData = async (req, res) => {
   try {
     const userId = req.user._id;
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const { cycleStart, cycleEnd } = getCycleDates();
 
     const categoryExpenses = await Expense.aggregate([
-      { $match: { user: userId, date: { $gte: startOfMonth } } },
+      { $match: { user: userId, date: { $gte: cycleStart, $lte: cycleEnd } } },
       { $group: { _id: '$category', total: { $sum: '$amount' } } }
     ]);
 
@@ -105,7 +136,7 @@ const getChartData = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-// First exports removed to prevent shadowing the bottom one.
+
 // @desc    Get last 6 months spending trend
 // @route   GET /api/reports/trend
 // @access  Private
