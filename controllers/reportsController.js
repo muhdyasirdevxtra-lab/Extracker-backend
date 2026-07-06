@@ -1,6 +1,7 @@
 const Expense = require('../models/Expense');
 const Salary = require('../models/Salary');
 const Savings = require('../models/Savings');
+const Account = require('../models/Account');
 
 // @desc    Get dashboard summary
 // @route   GET /api/reports/summary
@@ -57,13 +58,17 @@ const getDashboardSummary = async (req, res) => {
     
     const remainingBalance = monthlySalary - expData.monthlyExpense - monthlyDeposits;
 
+    // 5. Get Accounts
+    const accounts = await Account.find({ user: userId });
+
     res.json({
       monthlySalary,
       totalSavings,
       remainingBalance,
       todayExpense: expData.todayExpense,
       weeklyExpense: expData.weeklyExpense,
-      monthlyExpense: expData.monthlyExpense
+      monthlyExpense: expData.monthlyExpense,
+      accounts
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -91,3 +96,68 @@ const getChartData = async (req, res) => {
 };
 
 module.exports = { getDashboardSummary, getChartData };
+
+// @desc    Get last 6 months spending trend
+// @route   GET /api/reports/trend
+// @access  Private
+const getSpendingTrend = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+    const trend = await Expense.aggregate([
+      { $match: { user: userId, date: { $gte: sixMonthsAgo } } },
+      {
+        $group: {
+          _id: { month: { $month: '$date' }, year: { $year: '$date' } },
+          total: { $sum: '$amount' }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const result = trend.map(t => ({
+      month: monthNames[t._id.month - 1],
+      year: t._id.year,
+      total: t.total
+    }));
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get current vs last month insights
+// @route   GET /api/reports/insights
+// @access  Private
+const getInsights = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const now = new Date();
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const [currentMonth, lastMonth] = await Promise.all([
+      Expense.aggregate([
+        { $match: { user: userId, date: { $gte: startOfCurrentMonth } } },
+        { $group: { _id: '$category', total: { $sum: '$amount' } } }
+      ]),
+      Expense.aggregate([
+        { $match: { user: userId, date: { $gte: startOfLastMonth, $lt: startOfCurrentMonth } } },
+        { $group: { _id: '$category', total: { $sum: '$amount' } } }
+      ])
+    ]);
+
+    res.json({
+      currentMonth: currentMonth.map(c => ({ category: c._id, total: c.total })),
+      lastMonth: lastMonth.map(c => ({ category: c._id, total: c.total }))
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { getDashboardSummary, getChartData, getSpendingTrend, getInsights };

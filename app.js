@@ -48,6 +48,7 @@ const budgetRoutes = require('./routes/budgetRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const reportsRoutes = require('./routes/reportsRoutes');
+const accountRoutes = require('./routes/accountRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
@@ -58,6 +59,7 @@ app.use('/api/budget', budgetRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/accounts', accountRoutes);
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'API is running' });
 });

@@ -28,7 +28,7 @@ const getExpenses = async (req, res) => {
 // @access  Private
 const addExpense = async (req, res) => {
   try {
-    const { amount, category, remark, date, paymentMethod } = req.body;
+    const { amount, category, remark, date, paymentMethod, account } = req.body;
     let receiptImage = null;
 
     if (req.file) {
@@ -42,6 +42,7 @@ const addExpense = async (req, res) => {
       remark,
       date: date ? new Date(date) : Date.now(),
       paymentMethod,
+      account,
       receiptImage
     });
 
@@ -62,13 +63,14 @@ const updateExpense = async (req, res) => {
       return res.status(404).json({ message: 'Expense not found' });
     }
 
-    const { amount, category, remark, date, paymentMethod } = req.body;
+    const { amount, category, remark, date, paymentMethod, account } = req.body;
 
     expense.amount = amount || expense.amount;
     expense.category = category || expense.category;
     expense.remark = remark || expense.remark;
     expense.date = date ? new Date(date) : expense.date;
     expense.paymentMethod = paymentMethod || expense.paymentMethod;
+    expense.account = account || expense.account;
 
     if (req.file) {
       expense.receiptImage = `/uploads/${req.file.filename}`;

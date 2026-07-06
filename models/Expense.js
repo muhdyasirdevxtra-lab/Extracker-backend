@@ -6,6 +6,10 @@ const expenseSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  account: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Account' // Optional for backward compatibility, but we will start sending it
+  },
   amount: {
     type: Number,
     required: true
