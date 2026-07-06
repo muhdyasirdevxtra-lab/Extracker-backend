@@ -1,26 +1,20 @@
 const Salary = require('../models/Salary');
 const Expense = require('../models/Expense');
 
-// @desc    Add new salary
+// @desc    Add or update salary
 // @route   POST /api/salary
 // @access  Private
 const addSalary = async (req, res) => {
   const { amount, month, year } = req.body;
 
   try {
-    const existing = await Salary.findOne({ user: req.user._id, month, year });
-    if (existing) {
-      return res.status(400).json({ message: 'Salary for this month already exists' });
-    }
+    const salary = await Salary.findOneAndUpdate(
+      { user: req.user._id, month, year },
+      { amount },
+      { new: true, upsert: true }
+    );
 
-    const salary = await Salary.create({
-      user: req.user._id,
-      amount,
-      month,
-      year
-    });
-
-    res.status(201).json(salary);
+    res.status(200).json(salary);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
